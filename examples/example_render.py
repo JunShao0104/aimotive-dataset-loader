@@ -1,5 +1,5 @@
 import argparse
-
+# Todo: Check the path of src file
 from src.aimotive_dataset import AiMotiveDataset
 from src.renderer import Renderer
 
