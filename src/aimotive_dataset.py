@@ -55,7 +55,19 @@ class AiMotiveDataset:
 
 
 if __name__ == '__main__':
-    root_directory = "/media/tamas.matuszka/shares/hackathondata/temp/aimotive_dataset"
-    train_dataset = AiMotiveDataset(root_directory, split='val')
+    root_directory = "data"
+    train_dataset = AiMotiveDataset(root_directory, split='train')
+    print(len(train_dataset)) # 50 DataItem
     for data in train_dataset:
-        print(data['annotations'].path)
+        print(type(data)) # <class 'src.data_loader.DataItem'>
+        print(data.annotations.path) # e.g: data/train/nighttime/20210901-194123-00.37.12-00.37.27@Yoda/dynamic/box/3d_body/frame_0033643.json
+        print(len(data.annotations.objects)) # 8 objects
+        print(type(data.annotations.objects[0])) # dict, each object is a dict
+        print(data.lidar_data.top_lidar.point_cloud.shape) # np.array: (N of lidar pts, 5)
+        print(data.radar_data.front_radar.point_cloud.shape) # np.array: (N of front radar pts, 5)
+        print(data.radar_data.back_radar.point_cloud.shape) # np.array: (N of back radar pts, 5)
+        print(data.camera_data.front_camera.image.shape) # np.array: (704, 1280, 3)
+        print(data.camera_data.back_camera.image.shape) # np.array: (1216, 1920, 3) attention here!!!
+        print(data.camera_data.left_camera.image.shape) # np.array: (704, 1280, 3)
+        print(data.camera_data.right_camera.image.shape) # np.array: (704, 1280, 3)
+        print('------------------------------------------')

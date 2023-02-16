@@ -4,6 +4,7 @@ import torch
 import torchvision.transforms as T
 from torch.utils.data import Dataset, SequentialSampler
 
+import sys
 from src.aimotive_dataset import AiMotiveDataset
 from src.data_loader import DataItem
 from src.loaders.camera_loader import CameraData
@@ -39,23 +40,23 @@ class AiMotiveTorchDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, index):
-        data_item = self.dataset.data_loader[self.dataset.dataset_index[index]]
-        sensor_data = self.get_sensor_data(data_item)
-        annotations = self.get_targets(data_item.annotations.objects, CATEGORY_MAPPING)
-        annotations = self.prepare_annotations(annotations)
+        data_item = self.dataset.data_loader[self.dataset.dataset_index[index]] # DataItem
+        sensor_data = self.get_sensor_data(data_item) # list
+        annotations = self.get_targets(data_item.annotations.objects, CATEGORY_MAPPING) # list of tensor
+        annotations = self.prepare_annotations(annotations) # tensor
 
-        return sensor_data, annotations
+        return sensor_data, annotations # list, tensor
 
     def get_sensor_data(self, data_item: DataItem) -> List:
         lidar_data, radar_data, camera_data = data_item.lidar_data, data_item.radar_data, data_item.camera_data
 
-        lidar_data = self.prepare_lidar_data(lidar_data)
-        front_radar_data, back_radar_data = self.prepare_radar_data(radar_data)
-        front_cam, back_cam, left_cam, right_cam = self.prepare_camera_data(camera_data)
+        lidar_data = self.prepare_lidar_data(lidar_data) # Tensor changed from np and go through pad
+        front_radar_data, back_radar_data = self.prepare_radar_data(radar_data) # tuple(tensor, tensor)
+        front_cam, back_cam, left_cam, right_cam = self.prepare_camera_data(camera_data) # tuple(tensor, tensor, tensor, tensor)
 
         sensor_data = [lidar_data, [front_radar_data, back_radar_data], [front_cam, back_cam, left_cam, right_cam]]
 
-        return sensor_data
+        return sensor_data # list of (tensor/tuple of tensor)
 
     def get_targets(self, annotations: List[Dict], category_mapping: Dict[str, int]):
         # Generate your custom target representation here.
@@ -105,6 +106,7 @@ class AiMotiveTorchDataset(Dataset):
         return padded_data
 
     def prepare_annotations(self, annotations: torch.tensor) -> torch.tensor:
+        # annotations: list of tensor
         if len(annotations) > self.max_objects:
             annotations = annotations[:self.max_objects]
         else:
@@ -112,7 +114,7 @@ class AiMotiveTorchDataset(Dataset):
             for i in range(pad):
                 annotations.append(torch.zeros(14))
 
-        annotations = torch.vstack(annotations)
+        annotations = torch.vstack(annotations) # from list of tensor to totally tensor
 
         return annotations
 
@@ -145,6 +147,40 @@ if __name__ == '__main__':
     for data in train_loader:
         step += 1
         sensor_data, annotation = data
+        # print("sensor_data type: ", type(sensor_data)) # list
+        # print("annotation type: ", type(annotation)) # tensor
         sensor_data, annotation = to_device(sensor_data, device), to_device(annotation, device)
-        print('Iter ', step, annotation[0][0])
+
+        # Check the sensor data
+        # sensor_data = [lidar_data, [front_radar_data, back_radar_data], [front_cam, back_cam, left_cam, right_cam]]
+        
+        # Lidar data shape: (16, 150000, 5)
+        # 16: batchsize
+        # 150000: max_lidar_points number
+        # 5: lidar dim: x y z intensity timestamp
+        print('lidar data shape: ', sensor_data[0].shape) # (16, 150000, 5)
+
+        # Radar data shape: (16, 100, 5)
+        # 16: batchsize
+        # 100: max radar targets number
+        # 5: radar dim: x y z speed power
+        print('front radar data shape: ', sensor_data[1][0].shape) # (16, 100, 5)
+        print('back radar data shape: ', sensor_data[1][1].shape) # (16, 100, 5)
+
+        # Camera data shape: (16, 3, 704, 1280)
+        # 16: batchsize
+        # 3: channels of img
+        # 704 * 1280: resolution of img
+        print('front cam data shape: ', sensor_data[2][0].shape) # (16, 3, 704, 1280)
+        print('back cam data shape: ', sensor_data[2][1].shape) # (16, 3, 704, 1280)
+        print('left cam data shape: ', sensor_data[2][2].shape) # (16, 3, 704, 1280)
+        print('right cam data shape: ', sensor_data[2][3].shape) # (16, 3, 704, 1280)
+
+        # Check the annotation data
+        # annotation shape: (16, 30, 14)
+        # 16: batchsize
+        # 30: max_objects number, refer to totally 30 different objects, if no object, pad 0
+        # 14: 14 different bounding box params
+        print('Iter ', step, annotation.shape) # (16, 30, 14)
+        print('Iter ', step, annotation[0][0]) # (14, ) corresponding to cat, x, y, z, l, w, h, q_w, q_x, q_y, q_z, vel_x, vel_y, vel_z
 
